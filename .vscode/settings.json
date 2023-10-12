@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "*.js": "javascript",
+        "*.pl": "prolog",
+        "l2cache.h": "c"
+    }
+}

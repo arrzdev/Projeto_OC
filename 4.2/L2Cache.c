@@ -1,4 +1,4 @@
-#include "L1Cache.h"
+#include "L2Cache.h"
 
 uint8_t DRAM[DRAM_SIZE];
 uint32_t time;
@@ -64,6 +64,7 @@ void accessDRAM(uint32_t address, uint8_t *data, uint32_t mode) {
 void initCache() { 
   initDRAM();
   initL1();
+  initL2();
 }
 
 /* Initialize DRAM */
@@ -90,6 +91,22 @@ void initL1() {
   }
 }
 
+/* Initialize L2 */
+void initL2() {
+  
+    /* go through each line and set all properties to 0 */
+    for (int i = 0; i < L2_LINES; i++) {
+      SimpleCache.l2.line[i].Valid = 0;
+      SimpleCache.l2.line[i].Dirty = 0;
+      SimpleCache.l2.line[i].Tag = 0;
+
+      for (int j = 0; j < BLOCK_SIZE; j+=WORD_SIZE) {
+        SimpleCache.l2.line[i].Data[j] = 0;
+      }
+    }
+}
+
+/* Access L1 */
 void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
   uint32_t blockOffset = getBlockOffset(address);
   uint32_t lineIndex = getLineIndex(address);
@@ -100,17 +117,82 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
   /* HIT, if line is valid and tag matches */
   if(Line->Valid && Line->Tag == tag) {
     if (mode == MODE_READ) {
-      memcpy(data, &(SimpleCache.l1.line[lineIndex].Data[blockOffset]), WORD_SIZE);
+      memcpy(data, &(Line->Data[blockOffset]), WORD_SIZE);
 
       time += L1_READ_TIME;
     }
     if (mode == MODE_WRITE) {
-      memcpy(&(SimpleCache.l1.line[lineIndex].Data[blockOffset]), data, WORD_SIZE);
+      memcpy(&(Line->Data[blockOffset]), data, WORD_SIZE);
 
       /*Bit to alert cache was written to and hasnt updated memory*/
       Line->Dirty = 1;
 
       time += L1_WRITE_TIME;
+    }
+  } 
+  /* MISS */
+  else {
+    /* Check if Dirty bit */
+    /*
+    To get whole block you start from start of block
+    memory of start of block = address - block offset
+    */
+    if(Line->Dirty) {
+      /* Write all block data to dram */
+      accessL2(address - blockOffset, Line->Data, MODE_WRITE);
+    }
+
+    /* Get block of data from dram */
+    /* 
+    You need this for READ and WRITE 
+    because if you write you first have to get whole block as well
+    to after only write to certain offeset
+    */
+    accessL2(address - blockOffset, Line->Data, MODE_READ);
+
+    Line->Valid = 1;
+    Line->Tag = tag;
+
+    if(mode == MODE_READ) {
+      memcpy(data, &Line->Data[blockOffset], WORD_SIZE);
+
+      Line->Dirty = 0;
+
+      time += L1_READ_TIME;
+    }
+
+    if(mode == MODE_WRITE) {
+      memcpy(&Line->Data[blockOffset], data, WORD_SIZE);
+
+      Line->Dirty = 1;
+
+      time += L1_WRITE_TIME;
+    }
+  }
+}
+
+/* Access L2 */
+void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
+  uint32_t blockOffset = getBlockOffset(address);
+  uint32_t lineIndex = getLineIndex(address);
+  uint32_t tag = getTag(address);
+
+  CacheLine *Line = &SimpleCache.l2.line[lineIndex];
+
+  /* HIT, if line is valid and tag matches */
+  if(Line->Valid && Line->Tag == tag) {
+    if (mode == MODE_READ) {
+      memcpy(data, &(Line->Data[blockOffset]), WORD_SIZE);
+
+      time += L2_READ_TIME;
+    }
+    if (mode == MODE_WRITE) {
+      memcpy(&(Line->Data[blockOffset]), data, WORD_SIZE);
+
+      /*Bit to alert cache was written to and hasnt updated memory*/
+      Line->Dirty = 1;
+
+      time += L2_WRITE_TIME;
     }
   } 
   /* MISS */
@@ -141,7 +223,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
       Line->Dirty = 0;
 
-      time += L1_READ_TIME;
+      time += L2_READ_TIME;
     }
 
     if(mode == MODE_WRITE) {
@@ -149,7 +231,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
       Line->Dirty = 1;
 
-      time += L1_WRITE_TIME;
+      time += L2_WRITE_TIME;
     }
   }
 }

@@ -33,7 +33,7 @@ typedef struct CacheLine {
 /* 
 L1_LINES = L1_SIZE / BLOCK_SIZE = 256 
 
-L1_LINES = 256 * BLOCK_SIZE
+L1_LINES = 256
 */
 #define L1_LINES 256
 
@@ -45,10 +45,29 @@ void initL1();
 
 void accessL1(uint32_t, uint8_t *, uint32_t);
 
+/*********************** L2Cache *************************/
+
+/* 
+L2_LINES = L2_SIZE / BLOCK_SIZE = 
+
+L1_LINES = 512
+*/
+#define L2_LINES 512
+
+typedef struct L2Cache {
+  CacheLine line[L2_LINES];
+} L2Cache;
+
+void initL2();
+
+void accessL2(uint32_t, uint8_t *, uint32_t);
+
+
 /*********************** Cache *************************/
 
 typedef struct Cache {
   L1Cache l1;
+  L2Cache l2;
 } Cache;
 
 void initCache();

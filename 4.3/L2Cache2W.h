@@ -26,6 +26,7 @@ typedef struct CacheLine {
   uint8_t Dirty;
   uint32_t Tag;
   uint8_t Data[BLOCK_SIZE];
+  uint32_t Time; /* Used for LRU */
 } CacheLine;
 
 /*********************** L1Cache *************************/
@@ -33,7 +34,7 @@ typedef struct CacheLine {
 /* 
 L1_LINES = L1_SIZE / BLOCK_SIZE = 256 
 
-L1_LINES = 256 * BLOCK_SIZE
+L1_LINES = 256
 */
 #define L1_LINES 256
 
@@ -45,10 +46,36 @@ void initL1();
 
 void accessL1(uint32_t, uint8_t *, uint32_t);
 
+/*********************** L2Cache *************************/
+
+/* 
+L2_SETS = L2_SIZE / BLOCK_SIZE / WAYS = 256
+
+L2_SETS = 256
+*/
+
+#define L2_SETS 256
+#define WAYS 2
+
+
+typedef struct Sets {
+  CacheLine line[WAYS];
+} Sets;
+
+typedef struct L2Cache {
+  Sets sets[L2_SETS];
+} L2Cache;
+
+void initL2();
+
+void accessL2(uint32_t, uint8_t *, uint32_t);
+
+
 /*********************** Cache *************************/
 
 typedef struct Cache {
   L1Cache l1;
+  L2Cache l2;
 } Cache;
 
 void initCache();
